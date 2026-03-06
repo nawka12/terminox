@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# llama.cpp build
+llama.cpp/
+
+# Runtime files
+ft-server.log
+ft-server.pid
+
+# Personal settings
+MY_SETTINGS.md
+BACKUP.md
+docs/

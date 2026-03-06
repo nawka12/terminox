@@ -23,7 +23,7 @@ Features streaming responses, thinking block rendering, markdown output, session
 ### 1. Clone terminox
 
 ```bash
-git clone <your-repo-url> terminox
+git clone https://github.com/nawka12/terminox terminox
 cd terminox
 ```
 

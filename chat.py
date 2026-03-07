@@ -312,7 +312,7 @@ def compact_history(history: list) -> None:
 
     system = history[0] if history and history[0]["role"] == "system" else None
     text_messages = [m for m in history if m["role"] in ("user", "assistant") and m.get("content")]
-    conversation = "\n".join(f"{m['role'].upper()}: {m['content']}" for m in text_messages)
+    conversation = "\n".join(f"{m['role'].upper()}: {_text_from_content(m['content'])}" for m in text_messages)
 
     summary_request = [{"role": "user", "content": (
         "Summarize the following conversation concisely. Preserve all important context, "
@@ -333,7 +333,8 @@ def print_history(history: list) -> None:
     """Replay conversation history to the terminal."""
     for msg in history:
         role = msg.get("role")
-        content = msg.get("content") or ""
+        raw = msg.get("content") or ""
+        content = _text_from_content(raw)
         if role == "system":
             print(f"{DIM}[system: {content}]{RESET}\n")
         elif role == "user":

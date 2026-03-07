@@ -29,6 +29,10 @@ start() {
         [[ "$TEMPLATE_PATH" == /* ]] && TMPL="$TEMPLATE_PATH" || TMPL="$DIR/$TEMPLATE_PATH"
         [[ -f "$TMPL" ]] && EXTRA_ARGS+=(--chat-template-file "$TMPL")
     fi
+    if [[ -n "${MMPROJ_PATH:-}" ]]; then
+        [[ "$MMPROJ_PATH" == /* ]] && MMPROJ="$MMPROJ_PATH" || MMPROJ="$DIR/$MMPROJ_PATH"
+        [[ -f "$MMPROJ" ]] && EXTRA_ARGS+=(--mmproj "$MMPROJ")
+    fi
 
     > "$LOG"
     "$SERVER" \

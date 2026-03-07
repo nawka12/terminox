@@ -521,7 +521,8 @@ def main():
             compact_history(history)
             continue
 
-        history.append({"role": "user", "content": user_input})
+        content = parse_user_input(user_input)
+        history.append({"role": "user", "content": content})
 
         try:
             usage = run_turn(history, show_thinking=show_thinking, show_dev=show_dev, n_ctx=n_ctx)

@@ -30,7 +30,7 @@ def _text_from_content(content: str | list) -> str:
 
 
 _IMAGE_PATH_RE = re.compile(
-    r'(?<!\S)(?!https?://)(\S+\.(?:png|jpg|jpeg|gif|webp|bmp))(?!\S)',
+    r'(?<!\S)(?!\w+://)(\S+\.(?:png|jpg|jpeg|gif|webp|bmp))(?!\S)',
     re.IGNORECASE,
 )
 _IMAGE_SIZE_LIMIT = 10 * 1024 * 1024  # 10 MB

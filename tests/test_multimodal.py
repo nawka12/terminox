@@ -1,4 +1,7 @@
-from chat import _text_from_content
+import base64
+from pathlib import Path
+
+from chat import _text_from_content, parse_user_input
 
 
 def test_text_from_plain_string():
@@ -37,11 +40,6 @@ def test_text_part_missing_text_key_does_not_raise():
 
 def test_text_from_none_returns_empty():
     assert _text_from_content(None) == ""
-
-
-import base64
-from pathlib import Path
-from chat import parse_user_input
 
 
 def test_parse_plain_text_returns_string():
@@ -108,3 +106,8 @@ def test_parse_jpeg_extension(tmp_path):
 def test_parse_all_images_fail_returns_plain_string(capsys):
     result = parse_user_input("/does/not/exist.png")
     assert result == "/does/not/exist.png"
+
+
+def test_parse_ignores_non_http_url_schemes():
+    result = parse_user_input("see ftp://server/photo.png and s3://bucket/img.jpg")
+    assert result == "see ftp://server/photo.png and s3://bucket/img.jpg"

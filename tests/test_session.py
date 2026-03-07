@@ -59,3 +59,17 @@ def test_list_sessions_preview_truncated(tmp_path, monkeypatch):
     session.save_session([{"role": "user", "content": long_msg}])
     results = session.list_sessions()
     assert len(results[0]["preview"]) <= 63  # 60 chars + "..."
+
+
+def test_preview_with_multimodal_content(tmp_path, monkeypatch):
+    monkeypatch.setattr(session, "SESSIONS_DIR", tmp_path)
+    multimodal_msg = {
+        "role": "user",
+        "content": [
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}},
+            {"type": "text", "text": "describe this photo"},
+        ],
+    }
+    session.save_session([multimodal_msg])
+    results = session.list_sessions()
+    assert results[0]["preview"] == "describe this photo"

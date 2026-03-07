@@ -36,7 +36,12 @@ def load_session(path: Path) -> list:
 def _preview(messages: list) -> str:
     for m in messages:
         if m["role"] == "user":
-            text = m["content"].replace("\n", " ").strip()
+            raw = m["content"]
+            if isinstance(raw, list):
+                text = " ".join(p["text"] for p in raw if p.get("type") == "text" and "text" in p)
+            else:
+                text = raw or ""
+            text = text.replace("\n", " ").strip()
             if len(text) > PREVIEW_LEN:
                 return text[:PREVIEW_LEN] + "..."
             return text

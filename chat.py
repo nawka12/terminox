@@ -18,6 +18,13 @@ from rich.markdown import Markdown
 import session as session_mod
 from tools import TOOLS, execute_tool
 
+
+def _text_from_content(content) -> str:
+    if isinstance(content, str):
+        return content
+    return " ".join(p["text"] for p in content if p.get("type") == "text")
+
+
 SETTINGS_FILE = Path.home() / ".local" / "share" / "terminox" / "settings.json"
 
 

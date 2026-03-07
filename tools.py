@@ -12,7 +12,7 @@ SEARXNG_URL = os.environ.get("TERMINOX_SEARXNG", "http://localhost:8080")
 
 
 def get_current_time() -> str:
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.datetime.now().strftime("%A, %Y-%m-%d %H:%M:%S")
 
 
 def search(query: str, max_results: int = 5) -> str:

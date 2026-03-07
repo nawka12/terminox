@@ -93,7 +93,7 @@ _console = Console()
 
 HOST  = os.environ.get("TERMINOX_HOST", "127.0.0.1")
 PORT  = os.environ.get("TERMINOX_PORT", "8002")
-MODEL = os.environ.get("TERMINOX_MODEL", "qwen35-9b-ft")
+MODEL = os.environ.get("TERMINOX_MODEL", "")
 
 BASE_URL = f"http://{HOST}:{PORT}"
 
@@ -294,6 +294,19 @@ def check_health() -> bool:
         return False
 
 
+def get_model() -> str | None:
+    """Query the server for the loaded model name."""
+    try:
+        with urllib.request.urlopen(f"{BASE_URL}/v1/models", timeout=2) as r:
+            data = json.loads(r.read())
+            models = data.get("data", [])
+            if models:
+                return models[0].get("id")
+    except Exception:
+        pass
+    return None
+
+
 def get_context_size() -> int | None:
     """Query the server for its context window size."""
     try:
@@ -429,6 +442,9 @@ def main():
         print(f"Server not ready at {BASE_URL}. Is llama-server running?")
         sys.exit(1)
 
+    global MODEL
+    if not MODEL:
+        MODEL = get_model() or "unknown"
     n_ctx = get_context_size()
     print(HEADER)
     print(f"Connected to {MODEL} at {BASE_URL}")

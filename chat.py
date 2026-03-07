@@ -2,8 +2,10 @@
 """Simple ollama-like CLI for llama-server."""
 
 import argparse
+import base64
 import json
 import os
+import re
 import sys
 import time
 import urllib.request
@@ -25,6 +27,52 @@ def _text_from_content(content: str | list) -> str:
     if isinstance(content, str):
         return content
     return " ".join(p["text"] for p in content if p.get("type") == "text" and "text" in p)
+
+
+_IMAGE_PATH_RE = re.compile(
+    r'(?<!\S)(?!https?://)(\S+\.(?:png|jpg|jpeg|gif|webp|bmp))(?!\S)',
+    re.IGNORECASE,
+)
+_IMAGE_SIZE_LIMIT = 10 * 1024 * 1024  # 10 MB
+_MIME_MAP = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".bmp": "image/bmp",
+}
+
+
+def parse_user_input(text: str) -> str | list:
+    """Return text as-is, or a multimodal content list if image paths are detected."""
+    matches = _IMAGE_PATH_RE.findall(text)
+    if not matches:
+        return text
+
+    image_parts = []
+    for path_str in matches:
+        path = Path(path_str)
+        if not path.exists():
+            print(f"{DIM}◆ Image not found: {path_str} — skipping{RESET}")
+            continue
+        if path.stat().st_size > _IMAGE_SIZE_LIMIT:
+            print(f"{DIM}◆ Image too large: {path_str} (>10MB) — skipping{RESET}")
+            continue
+        try:
+            data = path.read_bytes()
+        except Exception:
+            print(f"{DIM}◆ Could not read: {path_str} — skipping{RESET}")
+            continue
+        mime = _MIME_MAP.get(path.suffix.lower(), "image/png")
+        b64 = base64.b64encode(data).decode()
+        print(f"{DIM}◆ Attaching: {path.resolve()}{RESET}")
+        image_parts.append({"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}})
+
+    if not image_parts:
+        return text
+
+    return image_parts + [{"type": "text", "text": text}]
 
 
 SETTINGS_FILE = Path.home() / ".local" / "share" / "terminox" / "settings.json"

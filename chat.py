@@ -58,6 +58,7 @@ def print_help() -> None:
         "Commands:\n"
         "  /system <text>  Set or replace the system prompt\n"
         "  /clear          Clear conversation history (keeps system prompt)\n"
+        "  /resume         Load a previous session\n"
         "  /think          Toggle thinking block visibility\n"
         "  /compact        Manually compact context\n"
         "  /help           Show this message\n"
@@ -407,6 +408,23 @@ def main():
             print(f"Connected to {MODEL} at {BASE_URL}")
             print('Type "/exit" or Ctrl+C to quit, "/clear" to reset context, "/help" for commands.\n')
             print(f"{DIM}Context cleared.{RESET}")
+            continue
+        if user_input == "/resume":
+            sessions = session_mod.list_sessions()
+            if not sessions:
+                print(f"{DIM}No saved sessions found.{RESET}")
+            else:
+                loaded, new_path = startup_menu(sessions)
+                if loaded:
+                    session_mod.save_session(history, session_path)
+                    history.clear()
+                    history.extend(loaded)
+                    session_path = new_path
+                    print("\033[2J\033[H", end="")
+                    print(HEADER)
+                    print(f"Connected to {MODEL} at {BASE_URL}")
+                    print('Type "/exit" or Ctrl+C to quit, "/clear" to reset context, "/help" for commands.\n')
+                    print_history(history)
             continue
         if user_input == "/think":
             show_thinking = not show_thinking

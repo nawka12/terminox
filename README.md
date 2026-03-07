@@ -97,6 +97,7 @@ python chat.py --resume          # pick up a previous session
 | `/help` | Show all commands |
 | `/system <text>` | Set or replace the system prompt |
 | `/clear` | Clear history (keeps system prompt) |
+| `/resume` | Load a previous session |
 | `/think` | Toggle thinking block visibility |
 | `/compact` | Manually summarise context |
 | `/exit` | Save session and quit |

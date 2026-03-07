@@ -402,7 +402,11 @@ def main():
             continue
         if user_input == "/clear":
             handle_clear_command(history)
-            print("Context cleared.")
+            print("\033[2J\033[H", end="")  # clear screen + move cursor to top
+            print(HEADER)
+            print(f"Connected to {MODEL} at {BASE_URL}")
+            print('Type "/exit" or Ctrl+C to quit, "/clear" to reset context, "/help" for commands.\n')
+            print(f"{DIM}Context cleared.{RESET}")
             continue
         if user_input == "/think":
             show_thinking = not show_thinking

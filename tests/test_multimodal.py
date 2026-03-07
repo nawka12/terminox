@@ -28,3 +28,12 @@ def test_text_from_empty_list():
 def test_text_from_list_no_text_parts():
     content = [{"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}}]
     assert _text_from_content(content) == ""
+
+
+def test_text_part_missing_text_key_does_not_raise():
+    content = [{"type": "text"}]  # malformed — no "text" key
+    assert _text_from_content(content) == ""
+
+
+def test_text_from_none_returns_empty():
+    assert _text_from_content(None) == ""

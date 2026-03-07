@@ -43,6 +43,13 @@ else
     CMAKE_CUDA=""
 fi
 
+# ── config ────────────────────────────────────────────────────────────────────
+
+if [[ ! -f "$DIR/config.sh" ]]; then
+    cp "$DIR/config.example.sh" "$DIR/config.sh"
+    warn "Created config.sh from config.example.sh — edit it to set your model path"
+fi
+
 # ── llama.cpp ─────────────────────────────────────────────────────────────────
 
 if [[ -f "$LLAMA_DIR/llama-server" ]]; then

@@ -8,6 +8,7 @@ import sys
 import time
 import urllib.request
 import urllib.error
+from pathlib import Path
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings
@@ -16,6 +17,20 @@ from rich.markdown import Markdown
 
 import session as session_mod
 from tools import TOOLS, execute_tool
+
+SETTINGS_FILE = Path.home() / ".local" / "share" / "terminox" / "settings.json"
+
+
+def load_settings() -> dict:
+    try:
+        return json.loads(SETTINGS_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def save_settings(settings: dict) -> None:
+    SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SETTINGS_FILE.write_text(json.dumps(settings, indent=2))
 
 _console = Console()
 
@@ -60,6 +75,7 @@ def print_help() -> None:
         "  /clear          Clear conversation history (keeps system prompt)\n"
         "  /resume         Load a previous session\n"
         "  /think          Toggle thinking block visibility\n"
+        "  /dev            Toggle tool output visibility\n"
         "  /compact        Manually compact context\n"
         "  /help           Show this message\n"
         "  /exit           Save session and quit\n"
@@ -246,6 +262,7 @@ MAX_TOOL_ROUNDS = 10
 def run_turn(
     history: list[dict],
     show_thinking: bool = True,
+    show_dev: bool = False,
     n_ctx: int | None = None,
 ) -> dict:
     for _round in range(MAX_TOOL_ROUNDS):
@@ -268,6 +285,8 @@ def run_turn(
             args = call["function"]["arguments"]
             print(f"{DIM}◆ using {name} tool{RESET}", flush=True)
             result = execute_tool(name, args)
+            if show_dev:
+                print(f"{DIM}◆ tool result: {result}{RESET}", flush=True)
             history.append({
                 "role": "tool",
                 "tool_call_id": call["id"],
@@ -357,7 +376,9 @@ def main():
     print(f"Connected to {MODEL} at {BASE_URL}")
     print('Type "/exit" or Ctrl+C to quit, "/clear" to reset context, "/help" for commands.\n')
 
-    show_thinking = True
+    settings = load_settings()
+    show_thinking = settings.get("show_thinking", True)
+    show_dev = False
     history: list[dict] = []
     session_path = None
     if args.resume:
@@ -429,7 +450,14 @@ def main():
         if user_input == "/think":
             show_thinking = not show_thinking
             state = "visible" if show_thinking else "hidden"
+            settings["show_thinking"] = show_thinking
+            save_settings(settings)
             print(f"{DIM}Thinking {state}.{RESET}")
+            continue
+        if user_input == "/dev":
+            show_dev = not show_dev
+            state = "on" if show_dev else "off"
+            print(f"{DIM}Dev mode {state}.{RESET}")
             continue
         if user_input == "/compact":
             compact_history(history)
@@ -438,7 +466,7 @@ def main():
         history.append({"role": "user", "content": user_input})
 
         try:
-            usage = run_turn(history, show_thinking=show_thinking, n_ctx=n_ctx)
+            usage = run_turn(history, show_thinking=show_thinking, show_dev=show_dev, n_ctx=n_ctx)
             if n_ctx and usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0) >= n_ctx * COMPACT_THRESHOLD:
                 compact_history(history)
         except Exception as e:

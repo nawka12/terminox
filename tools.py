@@ -49,9 +49,9 @@ def scrape(url: str) -> str:
             tag.decompose()
         text = soup.get_text(separator="\n", strip=True)
         text = re.sub(r"\n{3,}", "\n\n", text)
-        cap = 10 * 1024
+        cap = 50 * 1024
         if len(text.encode()) > cap:
-            return text.encode()[:cap].decode("utf-8", errors="ignore") + "\n\n[truncated at 10KB]"
+            return text.encode()[:cap].decode("utf-8", errors="ignore") + "\n\n[truncated at 50KB]"
         return text
     except Exception as e:
         return f"Scrape error: {e}"

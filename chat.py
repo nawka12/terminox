@@ -184,6 +184,58 @@ def _finalize_tool_calls(buf: dict) -> list:
     ]
 
 
+_TOOL_CALL_RE = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
+_FUNCTION_TAG_RE = re.compile(r"<function=(\w+)>(.*?)</function>", re.DOTALL)
+_PARAMETER_RE = re.compile(r"<parameter=(\w+)>(.*?)</parameter>", re.DOTALL)
+
+
+def _parse_tool_calls_from_thinking(thinking: str) -> list:
+    """Fallback: extract tool calls from thinking text.
+
+    Qwen3/3.5 sometimes emits <tool_call> blocks inside <think>, which
+    llama.cpp doesn't parse into structured delta.tool_calls.  We only
+    use this when the structured path found nothing.
+    """
+    if not thinking:
+        return []
+    blocks = _TOOL_CALL_RE.findall(thinking)
+    if not blocks:
+        return []
+
+    calls = []
+    for block in blocks:
+        block = block.strip()
+        # JSON format: {"name": "...", "arguments": {...}}
+        try:
+            data = json.loads(block)
+            if "name" in data:
+                args = data.get("arguments", data.get("parameters", {}))
+                calls.append({
+                    "id": f"think_{os.urandom(4).hex()}",
+                    "function": {"name": data["name"], "arguments": json.dumps(args)},
+                })
+                continue
+        except (json.JSONDecodeError, TypeError):
+            pass
+        # XML-ish format: <function=name><parameter=k>v</parameter></function>
+        fn_match = _FUNCTION_TAG_RE.search(block)
+        if fn_match:
+            name = fn_match.group(1)
+            params = {}
+            for pm in _PARAMETER_RE.finditer(fn_match.group(2)):
+                val = pm.group(2).strip()
+                try:
+                    val = json.loads(val)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+                params[pm.group(1)] = val
+            calls.append({
+                "id": f"think_{os.urandom(4).hex()}",
+                "function": {"name": name, "arguments": json.dumps(params)},
+            })
+    return calls
+
+
 def stream_chat(
     messages: list[dict],
     tools: list | None = None,
@@ -205,6 +257,7 @@ def stream_chat(
     )
 
     full_response = ""
+    full_thinking = ""
     in_thinking = False
     t_start: float | None = None
     prompt_tokens = 0
@@ -238,6 +291,7 @@ def stream_chat(
                 content  = delta.get("content", "")
 
                 if thinking:
+                    full_thinking += thinking
                     if not in_thinking:
                         if t_start is None:
                             t_start = time.monotonic()
@@ -281,6 +335,14 @@ def stream_chat(
             fill = (prompt_tokens + completion_tokens) / n_ctx
             ctx_info = f" · ctx {fill:.0%}"
         print(f"{DIM}▸ {completion_tokens} tokens · {completion_tokens / elapsed:.1f} tok/s{ctx_info}{RESET}")
+
+    # Fallback: if no structured tool calls found, try parsing from thinking
+    if not tool_call_buf and full_thinking:
+        recovered = _parse_tool_calls_from_thinking(full_thinking)
+        if recovered:
+            for i, tc in enumerate(recovered):
+                tool_call_buf[i] = {"id": tc["id"], "function": tc["function"]}
+            print(f"{DIM}◆ recovered {len(recovered)} tool call(s) from thinking block{RESET}")
 
     usage = {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens}
     return full_response, _finalize_tool_calls(tool_call_buf), usage
@@ -329,6 +391,20 @@ COMPACT_THRESHOLD = 0.85
 MAX_TOOL_ROUNDS = 10
 
 
+def _strip_think_blocks(text: str) -> str:
+    """Remove <think>...</think> blocks and any unclosed <think> tail.
+
+    Qwen3/3.5 with enable_thinking=true sometimes leaks reasoning_content
+    into the content field. Stripping it before storing in history prevents
+    the model from seeing an unclosed <think> block on the next turn.
+    """
+    if not text:
+        return text
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    text = re.sub(r"<think>.*$", "", text, flags=re.DOTALL)
+    return text.strip()
+
+
 def run_turn(
     history: list[dict],
     show_thinking: bool = True,
@@ -342,10 +418,13 @@ def run_turn(
             history.append({"role": "assistant", "content": response})
             return usage
 
-        # Append assistant message that triggered the tool calls
+        # Append assistant message that triggered the tool calls.
+        # Strip any leaked <think> blocks so the model doesn't see an
+        # unclosed thinking block on the next turn (Qwen3/3.5 bug).
+        clean = _strip_think_blocks(response) or None
         history.append({
             "role": "assistant",
-            "content": response or None,
+            "content": clean,
             "tool_calls": tool_calls,
         })
 
@@ -454,6 +533,8 @@ def main():
     show_thinking = settings.get("show_thinking", True)
     show_dev = False
     history: list[dict] = []
+    if not args.resume and settings.get("system_prompt"):
+        history.insert(0, {"role": "system", "content": settings["system_prompt"]})
     session_path = None
     if args.resume:
         sessions = session_mod.list_sessions()
@@ -492,9 +573,15 @@ def main():
             text = user_input[7:].strip()
             if text:
                 handle_system_command(history, text)
+                settings["system_prompt"] = text
+                save_settings(settings)
                 print(f"{DIM}System prompt set.{RESET}")
             else:
-                print("Usage: /system <your prompt text>")
+                current = next((m["content"] for m in history if m["role"] == "system"), settings.get("system_prompt"))
+                if current:
+                    print(current)
+                else:
+                    print(f"{DIM}No system prompt set.{RESET}")
             continue
         if user_input == "/clear":
             handle_clear_command(history)
